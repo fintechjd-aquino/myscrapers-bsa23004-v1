@@ -40,6 +40,11 @@ PRICE_RE      = re.compile(r"\$\s?([0-9,]+)")
 YEAR_RE       = re.compile(r"\b(19|20)\d{2}\b")
 MAKE_MODEL_RE = re.compile(r"\b([A-Z][a-z]+)\s+([A-Z][A-Za-z0-9]+)")
 
+TRANSMISSION_RE = re.compile(r"\b(automatic|manual|cvt)\b", re.I)
+FUEL_TYPE_RE    = re.compile(r"\b(gas|gasoline|diesel|electric|hybrid)\b", re.I)
+DOORS_RE        = re.compile(r"\b([24])\s*[- ]?door\b", re.I)
+TRUCK_RE        = re.compile(r"\b(truck|pickup)\b", re.I)
+
 # -------------------- HELPERS --------------------
 def _list_run_ids(bucket: str, scrapes_prefix: str) -> list[str]:
     """
@@ -134,20 +139,60 @@ def parse_listing(text: str) -> dict:
     mi = None
     m1 = re.search(r"(?:mileage|odometer)\s*[:\-]?\s*([\d,]+)", text, re.I)
     if m1:
-        try: mi = int(m1.group(1).replace(",", ""))
-        except ValueError: mi = None
+        try:
+            mi = int(m1.group(1).replace(",", ""))
+        except ValueError:
+            mi = None
+
     if mi is None:
         m2 = re.search(r"(\d+(?:\.\d+)?)\s*k\s*(?:mi|mile|miles)\b", text, re.I)
         if m2:
-            try: mi = int(float(m2.group(1)) * 1000)
-            except ValueError: mi = None
+            try:
+                mi = int(float(m2.group(1)) * 1000)
+            except ValueError:
+                mi = None
+
     if mi is None:
         m3 = re.search(r"(\d{1,3}(?:[,\d]{3})*)\s*(?:mi|mile|miles)\b", text, re.I)
         if m3:
-            try: mi = int(re.sub(r"[^\d]", "", m3.group(1)))
-            except ValueError: mi = None
+            try:
+                mi = int(re.sub(r"[^\d]", "", m3.group(1)))
+            except ValueError:
+                mi = None
+
     if mi is not None:
         d["mileage"] = mi
+
+    # transmission
+    t = TRANSMISSION_RE.search(text)
+    if t:
+        val = t.group(1).lower()
+        if val == "cvt":
+            d["transmission"] = "cvt"
+        elif val == "automatic":
+            d["transmission"] = "automatic"
+        elif val == "manual":
+            d["transmission"] = "manual"
+
+    # fuel type
+    f = FUEL_TYPE_RE.search(text)
+    if f:
+        val = f.group(1).lower()
+        if val == "gas":
+            d["fuel_type"] = "gasoline"
+        else:
+            d["fuel_type"] = val
+
+    # number of doors
+    dr = DOORS_RE.search(text)
+    if dr:
+        try:
+            d["num_doors"] = int(dr.group(1))
+        except ValueError:
+            pass
+
+    # simple truck flag
+    d["is_truck"] = bool(TRUCK_RE.search(text))
 
     return d
 
