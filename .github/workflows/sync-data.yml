@@ -1,0 +1,43 @@
+name: Data Sync Hourly Predictions to Repo
+
+on:
+  schedule:
+    - cron: '45 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync-data:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Create results folder
+        run: mkdir -p results
+
+      - name: Copy prediction files from GCS
+        run: |
+          for path in $(gsutil ls gs://myscrapers-bsa23004-v1/structured/preds/*/preds.csv); do
+            run_id=$(echo "$path" | sed -E 's|.*/structured/preds/([0-9]+)/preds\.csv|\1|')
+            gsutil cp "$path" "results/${run_id}-preds.csv"
+          done
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add results/
+          git diff --cached --quiet || git commit -m "🤖 Data Sync: Add hourly prediction files"
+          git push
