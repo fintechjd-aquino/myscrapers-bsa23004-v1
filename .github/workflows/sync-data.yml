@@ -9,6 +9,10 @@ permissions:
   contents: write
   id-token: write
 
+concurrency:
+  group: sync-data-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   sync-data:
     runs-on: ubuntu-latest
@@ -33,27 +37,38 @@ jobs:
           gcloud auth list
           gcloud config list project
 
-      - name: Create results folder
-        run: mkdir -p results
+      - name: Prepare local folders
+        run: |
+          mkdir -p results
+          mkdir -p /tmp/preds_sync
 
-      - name: Copy prediction files from GCS into results
+      - name: Copy prediction folders from GCS
         shell: bash
         run: |
           set -euo pipefail
 
-          paths=$(gsutil ls "gs://${{ vars.BUCKET_NAME }}/structured/preds/*/preds.csv" || true)
+          echo "Copying prediction folders from GCS..."
+          gsutil -m cp -r "gs://${{ vars.BUCKET_NAME }}/structured/preds/*" /tmp/preds_sync/ || true
 
-          if [ -z "$paths" ]; then
-            echo "No prediction files found in GCS."
+      - name: Flatten preds.csv files into results
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          found_any=false
+
+          while IFS= read -r file; do
+            [ -z "$file" ] && continue
+            found_any=true
+            run_id=$(basename "$(dirname "$file")")
+            echo "Copying $file -> results/${run_id}-preds.csv"
+            cp "$file" "results/${run_id}-preds.csv"
+          done < <(find /tmp/preds_sync -type f -name "preds.csv" | sort)
+
+          if [ "$found_any" = false ]; then
+            echo "No prediction files found after sync."
             exit 0
           fi
-
-          while IFS= read -r path; do
-            [ -z "$path" ] && continue
-            run_id=$(echo "$path" | sed -E 's|.*/structured/preds/([0-9]+)/preds\.csv|\1|')
-            echo "Copying $path -> results/${run_id}-preds.csv"
-            gsutil cp "$path" "results/${run_id}-preds.csv"
-          done <<< "$paths"
 
       - name: Show synced files
         run: ls -lah results || true
