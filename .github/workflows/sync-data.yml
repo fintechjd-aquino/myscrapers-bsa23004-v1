@@ -1,92 +1,75 @@
 name: Data Sync Hourly Predictions to Repo
-run-name: Syncing hourly predictions for ${{ github.ref_name }} by @${{ github.actor }} 
+
 on:
   schedule:
-    - cron: '45 * * * *' # Every hour at 45 minutes past the hour
-  workflow_dispatch: 
+    - cron: '45 * * * *'
+  workflow_dispatch:
 
 permissions:
-  contents: write # REQUIRED to commit and push files
-  id-token: write # REQUIRED for Workload Identity Federation (WIF)
+  contents: write
+  id-token: write
 
-# Inherit variables from your existing setup
 env:
-  PROJECT_ID: ${{ vars.PROJECT_ID }}
-  BUCKET_NAME: ${{ vars.BUCKET_NAME }}
-  WORKLOAD_IDENTITY_PROVIDER: ${{ vars.WORKLOAD_IDENTITY_PROVIDER }}
-  DEPLOYER_SA: ${{ vars.DEPLOYER_SA }}
-  GCS_PREDS_PREFIX: "structured/preds" # Base path for your prediction folders
-  OUTPUT_DIR: "results" # Local folder to store all timestamped files
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+concurrency:
+  group: sync-data-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  sync_data:
+  sync-data:
     runs-on: ubuntu-latest
-    steps:
-      # --- 1. SETUP & AUTHENTICATION ---
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-        with:
-          # FIX: Explicitly grant the GITHUB_TOKEN write access for push/rebase
-          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Auth (WIF) and Setup gcloud
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud via Workload Identity Federation
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ env.WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ env.DEPLOYER_SA }}
-      
-      - uses: google-github-actions/setup-gcloud@v2
-        with:
-          project_id: ${{ env.PROJECT_ID }}
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
 
-      # --- 2. DOWNLOAD AND RENAME DATA ---
-      - name: Find Latest Run ID, Download, and Rename File
-        id: download_rename # Step ID used to reference outputs later
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ vars.PROJECT_ID }}
+
+      - name: Prepare local folders
+        run: |
+          mkdir -p results
+          mkdir -p /tmp/preds_sync
+
+      - name: Copy prediction folders from GCS (fast parallel)
         shell: bash
         run: |
           set -euo pipefail
-          
-          # 2a. Find the LATEST folder/run_id in GCS
-          LATEST_RUN_DIR=$(gsutil ls -d gs://${BUCKET_NAME}/${GCS_PREDS_PREFIX}/*/ | tail -1)
-          
-          # 2b. Extract the timestamp (folder name, e.g., 2025120816)
-          LATEST_RUN_ID=$(echo "$LATEST_RUN_DIR" | sed -E "s|gs://${BUCKET_NAME}/${GCS_PREDS_PREFIX}/||; s|/||")
+          gsutil -m cp -r "gs://${{ vars.BUCKET_NAME }}/structured/preds/*" /tmp/preds_sync/ || true
 
-          # 2c. Define file paths and save variables to GITHUB_OUTPUT
-          LOCAL_FILENAME="$LATEST_RUN_ID-preds.csv"
-          GCS_SOURCE_FILE="${{ env.GCS_PREDS_PREFIX }}/$LATEST_RUN_ID/preds.csv"
-          LOCAL_TARGET_FILE="${{ env.OUTPUT_DIR }}/$LOCAL_FILENAME"
-          
-          echo "run_id=$LATEST_RUN_ID" >> "$GITHUB_OUTPUT"
-          echo "filename=$LOCAL_FILENAME" >> "$GITHUB_OUTPUT"
-          
-          echo "Detected latest run ID: $LATEST_RUN_ID"
-          
-          # 2d. Create local folder and copy the file
-          mkdir -p ${{ env.OUTPUT_DIR }} 
-          gsutil cp gs://${BUCKET_NAME}/${GCS_SOURCE_FILE} ${LOCAL_TARGET_FILE}
-          
-          echo "Successfully copied: gs://${BUCKET_NAME}/${GCS_SOURCE_FILE} to ${LOCAL_TARGET_FILE}"
-
-      # --- 3. COMMIT AND PUSH ---
-      - name: Commit and Push New Timestamped File
-        if: success() 
+      - name: Flatten preds.csv files into results
+        shell: bash
         run: |
-          git config --global user.name 'github-actions[bot]'
-          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-          
-          # Retrieve variables from the previous step's output
-          FILENAME="${{ steps.download_rename.outputs.filename }}"
-          RUN_ID="${{ steps.download_rename.outputs.run_id }}"
-          
-          # Stage the newly created timestamped file
-          git add ${{ env.OUTPUT_DIR }}/$FILENAME
-          
-          # Commit the new file
-          git commit -m "🤖 Data Sync: Add hourly prediction file for run $RUN_ID"
-          
-          # FIX 2: Pull the latest remote changes and rebase to resolve 'rejected' error
-          git pull --rebase origin main 
-          
-          # Push the changes
+          set -euo pipefail
+
+          while IFS= read -r file; do
+            run_id=$(basename "$(dirname "$file")")
+            cp "$file" "results/${run_id}-preds.csv"
+          done < <(find /tmp/preds_sync -type f -name "preds.csv" | sort)
+
+      - name: Commit and push if changed
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add results/
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+
+          git commit -m "🤖 Data Sync: Add hourly prediction files"
           git push
