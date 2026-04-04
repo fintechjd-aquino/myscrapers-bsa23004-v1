@@ -24,7 +24,7 @@ from google.cloud import storage
 
 # ---- REQUIRED VERTEX AI IMPORTS ----
 import vertexai
-from vertexai.generative_models import GenerativeModel, GenerationConfig, Content
+from vertexai.generative_models import GenerativeModel, GenerationConfig
 from google.api_core.exceptions import ResourceExhausted, InternalServerError, Aborted, DeadlineExceeded
 
 # -------------------- ENV --------------------
@@ -156,7 +156,7 @@ def _safe_int(x):
 # -------------------- VERTEX AI CALL --------------------
 def _vertex_extract_fields(raw_text: str) -> dict:
     """
-    Ask Gemini to return JSON with exactly: price, year, make, model, mileage.
+    Ask Gemini to return structured JSON for vehicle listing fields, including core pricing fields and additional LLM-extracted attributes.
     """
     model = _get_vertex_model()
 
@@ -175,7 +175,9 @@ def _vertex_extract_fields(raw_text: str) -> dict:
             "color": {"type": "string",  "nullable": True},
             "seller_type": {"type": "string",  "nullable": True},
             "drivetrain": {"type": "string",  "nullable": True},
-            "location": {"type": "string",  "nullable": True}
+            "city": {"type": "string",  "nullable": True},
+            "state": {"type": "string",  "nullable": True},
+            "zip_code": {"type": "string",  "nullable": True},
         },
         "required": ["price", "year", "make", "model", "mileage"]
     }
@@ -190,8 +192,12 @@ def _vertex_extract_fields(raw_text: str) -> dict:
         "body_type should describe the vehicle style (e.g. sedan, SUV, truck, coupe); "
         "title_status should reflect phrases such as clean title, rebuilt, salvage, lien; "
         "seller_type should be dealer or private party when clearly stated; "
-        "location should be city/state if explicitly present; "
-        "do not add extra keys."    
+        "color should be the vehicle exterior color only when explicitly stated; "
+        "city should be the city only if explicitly present; "
+        "state should be the U.S. state only if explicitly present; "
+        "zip_code should be the 5-digit ZIP code as a string only if explicitly present; "
+        "do not combine city, state, and zip_code into one field; "
+        "do not add extra keys."       
     )
 
     # FIX: Combine instruction and text into one prompt string (SDK compatibility)
@@ -243,13 +249,15 @@ def _vertex_extract_fields(raw_text: str) -> dict:
     parsed["make"] = _norm_str(parsed.get("make"))
     parsed["model"] = _norm_str(parsed.get("model"))
 
-    parsed["condition"] = _norm_str(parsed.get("condition"))
+    parsed["condition"] = _norm_str(parsed.get("condition"))    
     parsed["title_status"] = _norm_str(parsed.get("title_status"))
     parsed["body_type"] = _norm_str(parsed.get("body_type"))
     parsed["color"] = _norm_str(parsed.get("color"))
     parsed["seller_type"] = _norm_str(parsed.get("seller_type"))
     parsed["drivetrain"] = _norm_str(parsed.get("drivetrain"))
-    parsed["location"] = _norm_str(parsed.get("location"))
+    parsed["city"] = _norm_str(parsed.get("city"))
+    parsed["state"] = _norm_str(parsed.get("state"))
+    parsed["zip_code"] = _norm_str(parsed.get("zip_code"))
 
     return parsed
 
@@ -345,7 +353,9 @@ def llm_extract_http(request: Request):
                 "color": parsed.get("color"),
                 "seller_type": parsed.get("seller_type"),
                 "drivetrain": parsed.get("drivetrain"),
-                "location": parsed.get("location"),
+                "city": parsed.get("city"),
+                "state": parsed.get("state"),
+                "zip_code": parsed.get("zip_code"),
 
                 "llm_provider": "vertex",
                 "llm_model": LLM_MODEL,
