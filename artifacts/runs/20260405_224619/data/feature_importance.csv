@@ -1,0 +1,63 @@
+feature,importance_mean,importance_std
+mileage,0.36351062148366875,0.05719650792639826
+vehicle_age,0.04508096511371799,0.015061962531730031
+drivetrain_awd,0.04163279421631437,0.011888958262659205
+color_black,0.022418522999571245,0.013031602051857345
+drivetrain_fwd,0.020343571644352666,0.027882277965895198
+color_white,0.015697990104320457,0.008476234175063714
+drivetrain_AWD,0.014431817481970245,0.012753456593470679
+drivetrain_rwd,0.004674356025886795,0.007622234982141476
+drivetrain_4wd,0.0046698378380112485,0.01372042052396005
+color_Oxford White,0.0025204370213760983,0.0038269538176809426
+color_CREAM,0.001735955830962177,0.0014618087945484192
+color_Chronos Gray Metallic,0.001145119086069657,0.0011586240517662495
+color_White,0.0009292736283941338,0.001618484102536803
+color_Black,0.00029732109277152974,0.00046145369114865617
+drivetrain_4WD,9.513492692547754e-05,0.0003604061065344136
+drivetrain_FWD,5.196412576516929e-05,0.000931475320691164
+drivetrain_all-wheel drive,0.0,0.0
+drivetrain_RWD,0.0,0.0
+drivetrain_front wheel drive,0.0,0.0
+drivetrain_automatic,0.0,0.0
+color_BEIGE,0.0,0.0
+drivetrain_manual,0.0,0.0
+color_Black Forest Green,0.0,0.0
+color_Baltic Gray Metallic Clearcoat,0.0,0.0
+color_Brown,0.0,0.0
+color_Caviar,0.0,0.0
+drivetrain_All wheel drive,0.0,0.0
+color_BURGANDY,0.0,0.0
+drivetrain_All-wheel drive,0.0,0.0
+drivetrain_4x4,0.0,0.0
+color_Fuji White,0.0,0.0
+color_Fathom Blue Pearl,0.0,0.0
+color_Ecotronic Gray,0.0,0.0
+color_Dyno Blue Pearl,0.0,0.0
+color_Magnetic Gray Metallic,0.0,0.0
+color_Mosaic Black Metallic,0.0,0.0
+color_Liquid Platinum,0.0,0.0
+color_Gray,0.0,0.0
+color_Polar Silver,0.0,0.0
+color_Red,0.0,0.0
+color_Slate Grey Metallic,0.0,0.0
+color_Red Jewel Tintcoat,0.0,0.0
+color_Sunrise Red Gray Cloth,0.0,0.0
+color_Tan Silver Coast Metallic on Light Neutral w/Medi Leather,0.0,0.0
+color_Pearl White Metallic,0.0,0.0
+color_Gray Harbor Gray Metallic,0.0,0.0
+color_White Diamond Pearl,0.0,0.0
+color_Twilight Blue Metallic,0.0,0.0
+color_gray,0.0,0.0
+color_custom,0.0,0.0
+color_green,0.0,0.0
+color_plum purple,0.0,0.0
+color_midnight black,0.0,0.0
+color_gold,0.0,0.0
+color_tan,0.0,0.0
+color_orange,0.0,0.0
+color_grey,-8.072319721315057e-05,7.9906134492083e-05
+color_yellow,-0.00026136117405016756,0.0009433879358493108
+color_brown,-0.0010409478858723787,0.0009575712317704161
+color_red,-0.0018055357235967962,0.01433273426109859
+color_silver,-0.002503593604850174,0.001523584451364462
+color_blue,-0.0047651996834847665,0.00499267729709174
