@@ -9,6 +9,10 @@ on:
       - '.github/workflows/generate-model-artifacts.yml'
       - 'data/listings_master_llm.csv'
 
+# Fix Node.js warning
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 permissions:
   contents: write
 
